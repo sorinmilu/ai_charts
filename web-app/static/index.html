@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI talking points</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Serif:wght@500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css?v=3" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1 data-i18n="appTitle">Puncte de vedere despre IA</h1>
+      <p class="subtitle" data-i18n="appSubtitle">Cinci dimensiuni, de la −3 la +3</p>
+    </div>
+    <div class="top-controls">
+      <div class="lang-toggle" role="group" aria-label="Language">
+        <button type="button" id="lang-ro" class="lang-btn active" data-lang="ro">RO</button>
+        <button type="button" id="lang-en" class="lang-btn" data-lang="en">EN</button>
+      </div>
+      <nav class="tabs" role="tablist">
+        <button type="button" class="tab active" role="tab" aria-selected="true" data-tab="chart" data-i18n="tabChart">Grafic</button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-tab="defs" data-i18n="tabDefs">Definiții</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section id="panel-chart" class="panel active" role="tabpanel">
+      <div class="filters">
+        <div class="filter-group">
+          <span class="filter-label" data-i18n="filterYear">An</span>
+          <div id="year-filters" class="toggles"></div>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label" data-i18n="filterBucket">Tip sursă</span>
+          <div id="bucket-filters" class="toggles"></div>
+        </div>
+      </div>
+      <div id="chart" class="chart"></div>
+      <div id="marker-stack" class="marker-stack hidden" role="list" aria-label="Markers in group"></div>
+      <div id="hover-card" class="hover-card hidden" aria-live="polite">
+        <div class="hover-meta">
+          <div class="hover-author" id="hover-author"></div>
+          <div class="hover-title" id="hover-title"></div>
+        </div>
+        <p class="hover-point" id="hover-point"></p>
+        <a id="hover-link" class="hover-link" href="#" target="_blank" rel="noopener noreferrer" data-i18n="openSource">Deschide sursa</a>
+      </div>
+    </section>
+
+    <section id="panel-defs" class="panel" role="tabpanel" hidden>
+      <div id="defs-grid" class="defs-grid"></div>
+    </section>
+  </main>
+
+  <script src="/js/i18n.js?v=3"></script>
+  <script src="/js/chart.js?v=3"></script>
+  <script src="/js/app.js?v=3"></script>
+</body>
+</html>
