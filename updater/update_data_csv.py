@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Update AI research CSV datasets using Markdown research prompts.
+"""Update a talking-points CSV using a Markdown research prompt.
 
 Example:
   python updater/update_data_csv.py updater/prompts/practical_utility_prompt.md
@@ -18,6 +18,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from updater.research.config import load_config
+from updater.research.progress import Progress
 from updater.research.prompt_prep import PromptPrepError
 from updater.research.providers.openai_provider import OpenAIProviderError
 from updater.research.runner import run_update
@@ -26,9 +27,8 @@ from updater.research.runner import run_update
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Run a research prompt against its named CSV dataset via OpenAI "
-            "Responses API with web search. Writes review artifacts; does not "
-            "modify live web-app/data/*.csv files."
+            "Research new talking points via OpenAI (with web search) and append "
+            "validated rows to the live CSV named in the prompt."
         )
     )
     parser.add_argument(
@@ -41,12 +41,6 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help="Optional path to the dataset CSV (must match the file named in the prompt)",
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=Path,
-        default=None,
-        help="Directory for additions, report, and diagnostics",
     )
     parser.add_argument(
         "--model",
@@ -62,7 +56,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Prepare filled prompt and attachment only; make no API call",
+        help="Check prompt/dataset wiring only; no API call, no CSV changes",
     )
     parser.add_argument(
         "-v",
@@ -77,34 +71,39 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
+        level=logging.DEBUG if args.verbose else logging.WARNING,
         format="%(levelname)s: %(message)s",
     )
 
+    progress = Progress(enabled=True)
+
     try:
+        progress.step("Loading configuration")
         config = load_config()
+        progress.ok(f"provider={config.provider}, model={config.openai_model}")
+
         outcome = run_update(
             args.prompt,
             config=config,
             dataset=args.dataset,
-            output_dir=args.output_dir,
             model=args.model,
             max_new_rows=args.max_new_rows,
             dry_run=args.dry_run,
+            progress=progress,
         )
     except PromptPrepError as exc:
+        progress.fail(str(exc))
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     except OpenAIProviderError as exc:
+        progress.fail(str(exc))
         print(f"Error: {exc}", file=sys.stderr)
         return 2
     except FileNotFoundError as exc:
+        progress.fail(str(exc))
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    for message in outcome.messages:
-        print(message)
-    print(f"Output directory: {outcome.output_dir}")
     return outcome.exit_code
 
 

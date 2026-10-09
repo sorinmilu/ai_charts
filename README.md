@@ -7,7 +7,7 @@ Two apps in one repo:
 | `web-app/` | Chart UI and API (`app.py`, `static/`, shared `data/`) |
 | `updater/` | Research CSV updater (prompts, CLI, OpenAI research runs) |
 
-The web app reads talking-points CSVs from `web-app/data/` on every request. The updater never edits those live files; it writes review artifacts under `updater/output/` for human merge.
+The web app reads talking-points CSVs from `web-app/data/` on every request. The updater researches new rows and appends them to those CSVs when validation passes.
 
 ## Start the web app locally
 
@@ -105,23 +105,22 @@ Use the same systemd unit as in the Apache section to keep `web-app/app.py` runn
 
 ## Run the update script
 
-Updater needs a venv and OpenAI credentials. From the project root:
+Install updater dependencies and set OpenAI credentials. From the project root:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
 pip install -r updater/requirements.txt
 cp updater/.env.example updater/.env
-# Edit updater/.env — set OPENAI_API_KEY (optional: OPENAI_MODEL, RESEARCH_MAX_NEW_ROWS, …)
+# Edit updater/.env — set OPENAI_API_KEY
+# Optional: OPENAI_MODEL, OPENAI_REASONING_EFFORT, RESEARCH_MAX_NEW_ROWS, …
 ```
 
-Dry run (no API call; writes filled prompt + attached CSV only):
+Dry run (wiring check only; no API call, no CSV change):
 
 ```bash
 python updater/update_data_csv.py updater/prompts/practical_utility_prompt.md --dry-run
 ```
 
-Live research run (calls OpenAI + web search; incurs cost):
+Real run (calls OpenAI + web search; appends validated new rows to the live CSV if any):
 
 ```bash
 python updater/update_data_csv.py updater/prompts/practical_utility_prompt.md
@@ -136,23 +135,10 @@ python updater/update_data_csv.py updater/prompts/intellectual_jobs_Prompt.md
 python updater/update_data_csv.py updater/prompts/future_trajectory_prompt.md
 ```
 
-Useful flags:
-
-```bash
-python updater/update_data_csv.py updater/prompts/practical_utility_prompt.md \
-  --model gpt-4o \
-  --max-new-rows 20 \
-  --output-dir /tmp/utility_run \
-  -v
-```
-
-Artifacts land under `updater/output/<dataset>/<timestamp>/`. Review them, then append validated rows to the matching file in `web-app/data/` by hand. The updater does not modify live CSVs.
-
-More detail: [`updater/README.md`](updater/README.md).
+Each run logs one line to `updater/output/runs.log`. More detail: [`updater/README.md`](updater/README.md).
 
 ## Tests
 
 ```bash
-source .venv/bin/activate
 pytest updater/tests/ -q
 ```

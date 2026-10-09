@@ -24,11 +24,15 @@ RESEARCH_RESULT_SCHEMA: dict[str, Any] = {
         },
         "status": {
             "type": "string",
-            "enum": ["completed", "incomplete", "failed"],
+            "enum": ["completed", "failed"],
+            "description": (
+                "completed = usable research result (rows or header-only); "
+                "failed = could not research or produce a usable CSV."
+            ),
         },
         "status_reason": {
             "type": "string",
-            "description": "Explanation when not completed, else brief notes or empty.",
+            "description": "Empty when completed; short error explanation when failed.",
         },
     },
     "required": [
@@ -44,9 +48,12 @@ SYSTEM_INSTRUCTIONS = """
 You are performing verified web research for an AI evidence dataset update.
 Follow the user research instructions exactly.
 You have web_search and must use it to verify sources. Do not invent URLs or reconstruct
-recent publications from memory. If web search fails, set status to failed or incomplete
-and return a header-only additions_csv with an explanatory report.
-Return only the structured research result object.
+recent publications from memory.
+
+Set status=completed when you return verified additions (or a header-only CSV if none
+qualify). Coverage gaps belong in the report, not in status.
+Set status=failed only if web search is unavailable/broken or you cannot produce a usable
+additions_csv. Return only the structured research result object.
 """.strip()
 
 
@@ -62,6 +69,7 @@ class OpenAIResponsesProvider:
         model: str,
         timeout_seconds: float | None = None,
         max_output_tokens: int | None = None,
+        reasoning_effort: str | None = None,
         max_retries: int = 4,
         client: Any | None = None,
     ) -> None:
@@ -72,6 +80,7 @@ class OpenAIResponsesProvider:
         self.model = model
         self.timeout_seconds = timeout_seconds
         self.max_output_tokens = max_output_tokens
+        self.reasoning_effort = (reasoning_effort or "").strip().lower() or None
         self.max_retries = max_retries
         if client is not None:
             self._client = client
@@ -117,7 +126,10 @@ class OpenAIResponsesProvider:
                     "content": user_content,
                 }
             ],
+            # Hosted web search must be available; require a tool call so research
+            # cannot complete from model memory alone.
             "tools": [{"type": "web_search"}],
+            "tool_choice": "required",
             "text": {
                 "format": {
                     "type": "json_schema",
@@ -129,6 +141,8 @@ class OpenAIResponsesProvider:
         }
         if max_tokens is not None:
             create_kwargs["max_output_tokens"] = max_tokens
+        if self.reasoning_effort is not None:
+            create_kwargs["reasoning"] = {"effort": self.reasoning_effort}
 
         response = self._create_with_retries(create_kwargs)
         return self._to_result(response)

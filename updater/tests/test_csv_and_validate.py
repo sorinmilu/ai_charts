@@ -295,6 +295,7 @@ def test_capability_source_type_matches_type():
 
 
 def test_malformed_and_incomplete_api_output():
+    # Truncated API response is still a hard fail.
     errors = assess_provider_payload(
         status="incomplete",
         status_reason="max_output_tokens",
@@ -304,7 +305,31 @@ def test_malformed_and_incomplete_api_output():
         used_web_search=True,
         incomplete_reason="max_output_tokens",
     )
-    assert any("incomplete" in e.lower() for e in errors)
+    assert any("API response status" in e for e in errors)
+
+    # Legacy model status "incomplete" with a CSV still counts as usable.
+    errors_partial = assess_provider_payload(
+        status="incomplete",
+        status_reason="legacy incomplete with rows",
+        additions_csv="id\nCAP999\n",
+        update_report_markdown="partial",
+        api_status="completed",
+        used_web_search=True,
+        incomplete_reason=None,
+    )
+    assert errors_partial == []
+
+    # Legacy incomplete with no CSV → hard fail.
+    errors_empty = assess_provider_payload(
+        status="incomplete",
+        status_reason="could not finish",
+        additions_csv="",
+        update_report_markdown="partial",
+        api_status="completed",
+        used_web_search=True,
+        incomplete_reason=None,
+    )
+    assert any("additions_csv is empty" in e or "Invalid result status" in e for e in errors_empty)
 
     errors2 = assess_provider_payload(
         status="completed",

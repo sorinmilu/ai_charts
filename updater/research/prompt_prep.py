@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 from .csv_io import parse_csv, read_csv_text
@@ -22,8 +22,15 @@ API TRANSPORT CONTRACT (overrides file-creation / fenced-block delivery only)
 Return a single structured object with these fields:
 - additions_csv: UTF-8 CSV string of new rows only (header required; header-only if none qualify)
 - update_report_markdown: Markdown research report string
-- status: completed, incomplete, or failed
-- status_reason: short explanation when status is not completed, otherwise empty or brief notes
+- status: completed or failed
+- status_reason: empty when completed; short error explanation when failed
+
+Status rules:
+- completed: research ran with web search and you are returning whatever verified additions
+  you found (including header-only when none qualify). Partial window coverage is fine —
+  put gaps and caveats in the report, NOT in status.
+- failed: web search unavailable/broken, or you could not produce a usable additions CSV.
+  Do not use failed merely because research was non-exhaustive.
 
 Do not write filesystem files. Do not wrap the CSV/report in Markdown fences for delivery.
 The additions_csv header and column order must exactly match the attached EXISTING DATASET CSV
@@ -333,8 +340,3 @@ def prepare_prompt(
         filled_instructions=filled,
         transport_addendum=TRANSPORT_ADDENDUM,
     )
-
-
-def default_output_dir(root: Path, dataset_stem: str, when: datetime | None = None) -> Path:
-    stamp = (when or datetime.now()).strftime("%Y%m%d_%H%M%S")
-    return root / "updater" / "output" / dataset_stem / stamp

@@ -294,31 +294,39 @@ def assess_provider_payload(
     used_web_search: bool,
     incomplete_reason: str | None,
 ) -> list[str]:
-    """Hard errors for incomplete/failed/malformed provider results."""
+    """Hard errors that mean we should not try to import rows."""
     errors: list[str] = []
+    csv_text = "" if additions_csv is None else str(additions_csv).strip()
+    report_text = (
+        "" if update_report_markdown is None else str(update_report_markdown).strip()
+    )
+
+    # Truncated/failed transport — do not trust partial generations.
     if api_status and api_status not in {"completed"}:
         errors.append(
             f"API response status is {api_status!r}"
             + (f" ({incomplete_reason})" if incomplete_reason else "")
             + "; not treating output as successful research."
         )
-    if status == "failed":
+
+    # Tolerate legacy "incomplete" from older runs: treat like completed if CSV exists.
+    normalised = "completed" if status == "incomplete" and csv_text else status
+
+    if normalised == "failed":
         errors.append(f"Provider reported failed: {status_reason or '(no reason)'}")
-    if status == "incomplete":
-        errors.append(
-            f"Provider reported incomplete: {status_reason or incomplete_reason or '(no reason)'}; "
-            "partial rows will not be imported."
-        )
-    if status not in {"completed", "incomplete", "failed"}:
+    elif normalised != "completed":
         errors.append(f"Invalid result status {status!r}")
-    if not used_web_search and status == "completed":
+
+    if normalised == "completed" and not used_web_search:
         errors.append(
-            "Research completed without detectable web_search tool use; "
+            "Research finished without detectable web_search tool use; "
             "refusing to accept stored-knowledge-only output as verified research."
         )
-    if status == "completed":
-        if additions_csv is None or not str(additions_csv).strip():
+
+    if normalised == "completed":
+        if not csv_text:
             errors.append("completed status but additions_csv is empty")
-        if update_report_markdown is None or not str(update_report_markdown).strip():
+        if not report_text:
             errors.append("completed status but update_report_markdown is empty")
+
     return errors

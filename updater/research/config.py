@@ -17,6 +17,7 @@ class AppConfig:
     provider: str
     openai_api_key: str
     openai_model: str
+    openai_reasoning_effort: str | None
     max_new_rows: int
     timeout_seconds: float | None
     max_output_tokens: int | None
@@ -45,10 +46,12 @@ def load_config(env_file: Path | None = None, *, root: Path | None = None) -> Ap
         load_dotenv(path, override=False)
 
     max_rows_raw = os.environ.get("RESEARCH_MAX_NEW_ROWS", "40").strip() or "40"
+    reasoning_raw = (os.environ.get("OPENAI_REASONING_EFFORT") or "").strip().lower()
     return AppConfig(
         provider=(os.environ.get("AI_PROVIDER") or "openai").strip().lower(),
         openai_api_key=(os.environ.get("OPENAI_API_KEY") or "").strip(),
         openai_model=(os.environ.get("OPENAI_MODEL") or "gpt-4o").strip(),
+        openai_reasoning_effort=reasoning_raw or None,
         max_new_rows=int(max_rows_raw),
         timeout_seconds=_optional_float("RESEARCH_TIMEOUT_SECONDS"),
         max_output_tokens=_optional_int("RESEARCH_MAX_OUTPUT_TOKENS"),
