@@ -25,11 +25,37 @@ The process binds to `127.0.0.1:8765` and serves:
 - static UI from `web-app/static/`
 - JSON APIs: `/api/points`, `/api/definitions`, `/api/buckets` (from `web-app/data/`)
 
-## Deploy behind Apache
+## Deploy on Ubuntu 22.04.5 LTS with Apache
 
-Run the Python app on localhost, then reverse-proxy with Apache (`mod_proxy` / `mod_proxy_http`).
+Run the Python app on `127.0.0.1:8765`, then reverse-proxy with Apache (`mod_proxy` / `mod_proxy_http`). No pip packages are required for the web app.
 
-1. Keep the app running (example systemd unit):
+### 1. Install packages
+
+```bash
+sudo apt update
+sudo apt install -y apache2 python3
+```
+
+### 2. Put the project on the server
+
+Clone or copy the repo somewhere durable (example: `/opt/ai_charts`):
+
+```bash
+sudo mkdir -p /opt/ai_charts
+sudo chown "$USER:$USER" /opt/ai_charts
+git clone <your-repo-url> /opt/ai_charts
+# or: rsync / scp your tree into /opt/ai_charts
+```
+
+Confirm it starts:
+
+```bash
+cd /opt/ai_charts
+python3 web-app/app.py
+# Open http://127.0.0.1:8765/ then Ctrl+C
+```
+
+### 3. systemd unit (keep the app running)
 
 ```ini
 # /etc/systemd/system/ai-charts.service
@@ -39,22 +65,35 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/path/to/ai_charts
+WorkingDirectory=/opt/ai_charts
 ExecStart=/usr/bin/python3 web-app/app.py
 Restart=on-failure
+User=www-data
+Group=www-data
 
 [Install]
 WantedBy=multi-user.target
 ```
 
+Ensure `www-data` can read the tree (and write `web-app/data/` if the updater runs as that user):
+
 ```bash
+sudo chown -R www-data:www-data /opt/ai_charts
+sudo systemctl daemon-reload
 sudo systemctl enable --now ai-charts
+sudo systemctl status ai-charts
 ```
 
-2. Apache virtual host (adapt `ServerName` and paths):
+### 4. Apache reverse proxy
+
+Enable modules and create a site:
+
+```bash
+sudo a2enmod proxy proxy_http headers
+```
 
 ```apache
-# Enable modules once: a2enmod proxy proxy_http headers
+# /etc/apache2/sites-available/ai-charts.conf
 <VirtualHost *:80>
     ServerName charts.example.com
 
@@ -67,13 +106,25 @@ sudo systemctl enable --now ai-charts
 </VirtualHost>
 ```
 
-Reload Apache after enabling the site:
+Enable the site and reload:
 
 ```bash
-sudo apachectl configtest && sudo systemctl reload apache2
+sudo a2ensite ai-charts
+sudo a2dissite 000-default   # optional, if this host only serves ai-charts
+sudo apache2ctl configtest
+sudo systemctl reload apache2
 ```
 
-For HTTPS, terminate TLS on Apache (e.g. Certbot) and keep the same `ProxyPass` to `127.0.0.1:8765`.
+Point DNS for `charts.example.com` at the server, then open `http://charts.example.com/`.
+
+### 5. HTTPS (optional)
+
+```bash
+sudo apt install -y certbot python3-certbot-apache
+sudo certbot --apache -d charts.example.com
+```
+
+Certbot adds a TLS vhost; keep proxying to `http://127.0.0.1:8765/` unchanged.
 
 ## Deploy behind nginx
 
