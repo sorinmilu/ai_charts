@@ -100,16 +100,19 @@ function setupTabs() {
         b.classList.toggle("active", b === btn);
         b.setAttribute("aria-selected", b === btn ? "true" : "false");
       });
-      document.getElementById("panel-chart").classList.toggle("active", tab === "chart");
-      document.getElementById("panel-chart").hidden = tab !== "chart";
-      document.getElementById("panel-defs").classList.toggle("active", tab === "defs");
-      document.getElementById("panel-defs").hidden = tab !== "defs";
+      document.querySelectorAll(".panel").forEach((panel) => {
+        const active = panel.id === `panel-${tab}`;
+        panel.classList.toggle("active", active);
+        panel.hidden = !active;
+      });
       hideChartPopups();
       if (tab === "chart") {
         await loadPoints();
         resizeChart();
-      } else {
+      } else if (tab === "defs") {
         await loadDefinitions();
+      } else if (tab === "articles") {
+        await loadArticles();
       }
     });
   });
@@ -127,6 +130,7 @@ function setupLang() {
       renderChart(state.data, state);
     }
     if (state.definitions) renderDefinitions();
+    refreshArticlesI18n();
   };
 
   document.querySelectorAll(".lang-btn").forEach((btn) => {
@@ -161,15 +165,21 @@ function setupHoverCard() {
 }
 
 async function refreshAll() {
-  const chartActive = document.getElementById("panel-chart").classList.contains("active");
-  if (chartActive) await loadPoints();
-  else await loadDefinitions();
+  if (document.getElementById("panel-chart").classList.contains("active")) {
+    await loadPoints();
+  } else if (document.getElementById("panel-defs").classList.contains("active")) {
+    await loadDefinitions();
+  } else if (document.getElementById("panel-articles").classList.contains("active")) {
+    await loadArticles();
+  }
 }
 
 async function init() {
   setupTabs();
   setupLang();
   setupHoverCard();
+  setupArticlesPagination();
+  setupArticleDetails();
   window.addEventListener("resize", resizeChart);
   window.addEventListener("focus", refreshAll);
   document.addEventListener("visibilitychange", () => {

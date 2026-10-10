@@ -221,6 +221,46 @@ def load_definitions() -> dict:
     }
 
 
+def load_articles() -> dict:
+    """All CSV rows across the five concern files, for the Articole tab."""
+    articles = []
+    years: set[str] = set()
+    types: set[str] = set()
+    for concern in CONCERNS:
+        path = DATA / concern["file"]
+        with path.open(newline="", encoding="utf-8-sig") as fh:
+            reader = csv.DictReader(fh)
+            for row in reader:
+                article = {
+                    (k or "").strip(): (v or "").strip() if isinstance(v, str) else v
+                    for k, v in row.items()
+                    if k is not None
+                }
+                article["concern"] = concern["id"]
+                year = year_from_date(article.get("date"))
+                article["year"] = year
+                if not article.get("type"):
+                    article["type"] = article.get("source_type") or ""
+                if year:
+                    years.add(year)
+                if article["type"]:
+                    types.add(article["type"])
+                articles.append(article)
+    return {
+        "concerns": [
+            {
+                "id": c["id"],
+                "label_en": c["label_en"],
+                "label_ro": c["label_ro"],
+            }
+            for c in CONCERNS
+        ],
+        "years": sorted(years),
+        "types": sorted(types),
+        "articles": articles,
+    }
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(STATIC), **kwargs)
@@ -258,6 +298,8 @@ class Handler(SimpleHTTPRequestHandler):
             payload = load_points()
         elif path == "/api/definitions":
             payload = load_definitions()
+        elif path == "/api/articles":
+            payload = load_articles()
         elif path == "/api/buckets":
             payload = load_bucket_config()
         else:
